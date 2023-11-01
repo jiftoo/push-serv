@@ -11,7 +11,10 @@ use axum::{
 	routing::{get, post},
 	Router,
 };
+use include_dir::{include_dir, Dir};
 use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
+
+static IMAGES: Dir<'_> = include_dir!("src/images");
 
 #[tokio::main]
 async fn main() {
@@ -66,12 +69,8 @@ async fn upload(query: Query<HashMap<String, String>>, data: Bytes) -> Result<()
 	Ok(())
 }
 
-async fn image() -> Result<(HeaderMap, Vec<u8>), StatusCode> {
-	let image_dir = std::fs::read_dir("./images").map_err(|_| StatusCode::NOT_FOUND)?;
-	let image_file = image_dir
-		.choose(&mut rand::thread_rng())
-		.and_then(|x| x.ok())
-		.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+async fn image() -> Result<(HeaderMap, &'static [u8]), StatusCode> {
+	let image_file = IMAGES.files().choose(&mut rand::thread_rng()).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 	let mut headers = HeaderMap::new();
 	headers.insert(CONTENT_DISPOSITION, "inline".parse().unwrap());
 	headers.insert(
@@ -85,5 +84,5 @@ async fn image() -> Result<(HeaderMap, Vec<u8>), StatusCode> {
 	);
 	headers.insert(CACHE_CONTROL, "no-cache, no-store, must-revalidate".parse().unwrap());
 
-	Ok((headers, std::fs::read(image_file.path()).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?))
+	Ok((headers, image_file.contents()))
 }
