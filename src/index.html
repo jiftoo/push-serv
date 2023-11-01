@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Ubuntu:wght@400;700&display=swap" rel="stylesheet" />
+		<title>Upload</title>
+		<style>
+			:root {
+				font-family: "Open Sans", sans-serif;
+				font-family: "Ubuntu", sans-serif;
+			}
+			body {
+				overflow: hidden;
+				background: linear-gradient(rgb(240, 250, 240) 0%, rgb(210, 225, 210) 100%);
+				height: 100vh;
+				margin: 0;
+				color: #111;
+			}
+
+			main {
+				max-width: 325px;
+				width: 75vw;
+				/* width: fit-content; */
+				margin: auto;
+				margin-top: 0;
+				transform: translateY(25%);
+
+				background-color: rgb(205, 220, 205);
+				padding: 1.5em;
+				border-radius: 1em;
+
+				text-align: center;
+			}
+
+			main > * {
+				margin-top: 8px;
+			}
+
+			main > img {
+				margin-top: 1em;
+				border-radius: 1em;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>Upload a file to me</h1>
+			<h3 id="max-size-info">
+				Max size:
+				<div style="width: 10ch; display: inline-block"></div>
+			</h3>
+			<input type="file" id="file" />
+			<br />
+			<button id="upload">Upload</button>
+			<br />
+			<div>Progress: <span id="progress">0%</span></div>
+			<img src="/image" width="288" height="288" />
+		</main>
+		<script>
+			const upload = document.getElementById("upload");
+			const file = document.getElementById("file");
+			const maxSizeInfo = document.getElementById("max-size-info");
+			fetch("/max-size")
+				.then((v) => v.text())
+				.then((v) => (maxSizeInfo.innerText = "Max size: " + v + " KiB"));
+			upload.addEventListener("click", async () => {
+				if (!file.files.length) {
+					return;
+				}
+
+				let buf = await file.files[0].arrayBuffer();
+				console.log(buf);
+
+				const c = new AbortController();
+				let timeoutHandle = setTimeout(() => {
+					console.log("timeout");
+					document.getElementById("progress").textContent = `Timeout`;
+					c.abort();
+					// the click listener will return on abort
+				}, 3000);
+
+				let maxSize = +(await fetch("/max-size", {signal: c.signal}).then((v) => v.text()));
+
+				maxSizeInfo.innerText = "Max size: " + maxSize + " KiB";
+				if (buf.byteLength > maxSize * 1024) {
+					document.getElementById("progress").innerHTML = `File too big.<br>Size: ${Math.ceil(buf.byteLength / 1024)} KiB; Max size: ${maxSize} KiB`;
+					return;
+				}
+
+				const xhr = new XMLHttpRequest();
+				console.log("xhr");
+				console.log("set timeout");
+				xhr.open("POST", "/upload?filename=" + encodeURIComponent(file.files[0].name));
+				console.log("open");
+
+				xhr.upload.addEventListener("progress", (e) => {
+					console.log("progress", e.loaded);
+					clearTimeout(timeoutHandle);
+					timeoutHandle = null;
+					const progress = Math.round((e.loaded / e.total) * 100);
+					document.getElementById("progress").textContent = `${progress}%`;
+				});
+				xhr.addEventListener("error", () => {
+					console.log("error");
+					document.getElementById("progress").textContent = `Error`;
+				});
+				xhr.send(buf);
+			});
+		</script>
+	</body>
+</html>
