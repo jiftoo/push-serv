@@ -45,8 +45,7 @@ async fn main() {
 }
 
 async fn upload_page() -> impl IntoResponse {
-	// Html(include_str!("index.html"))
-	Html(std::fs::read_to_string("./src/index.html").unwrap())
+	Html(include_str!("index.html"))
 }
 
 async fn upload(query: Query<HashMap<String, String>>, data: Bytes) -> Result<(), (StatusCode, &'static str)> {
